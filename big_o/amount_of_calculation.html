@@ -1,0 +1,501 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>計算量</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: 1カラムの実験ノート。各アルゴリズムが「棒グラフの実験台 + 操作 + カウンター」の1ブロック */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --fg: #19202c;
+  --muted: #5a6475;
+  --line: #dce1e9;
+  --bar: #b4bfd1;
+  --dim: #e7ebf1;
+  --accent: #e0601a;
+  --range: #3b62c6;
+  --done: #2a8a66;
+  --run2: #8656c2;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151b; --surface: #191e26; --fg: #e6eaf1; --muted: #98a2b2; --line: #2a313c;
+    --bar: #4b5668; --dim: #222933; --accent: #ff8b4d; --range: #7d9df1; --done: #4fc699; --run2: #b494ec;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151b; --surface: #191e26; --fg: #e6eaf1; --muted: #98a2b2; --line: #2a313c;
+  --bar: #4b5668; --dim: #222933; --accent: #ff8b4d; --range: #7d9df1; --done: #4fc699; --run2: #b494ec;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.75;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+header h1 { font-size: clamp(26px, 5vw, 36px); font-weight: 900; line-height: 1.3; margin: 0 0 8px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 62ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+.lab { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.lab-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.lab-head h2 { font-size: 21px; font-weight: 700; margin: 0; }
+.badge { font-family: var(--font-mono); font-weight: 600; font-size: 14px; padding: 2px 10px; border-radius: 999px; border: 1.5px solid currentColor; }
+.b-n2 { color: var(--accent); } .b-nlogn { color: var(--range); } .b-logn { color: var(--done); }
+.why { margin: 0; color: var(--muted); font-size: 14px; max-width: 66ch; }
+.why b { color: var(--fg); }
+
+.stage { height: 190px; display: flex; align-items: flex-end; gap: 2px; padding: 8px; background: var(--bg); border-radius: 10px; overflow: hidden; }
+.bar { flex: 1 1 0; min-width: 0; background: var(--bar); border-radius: 3px 3px 0 0; position: relative; display: flex; align-items: flex-end; justify-content: center; transition: height .12s linear; }
+.bar.gap { margin-left: 7px; }
+.bar.cmp { background: var(--accent); }
+.bar.range { background: var(--range); opacity: .55; }
+.bar.cmp.range { opacity: 1; background: var(--accent); }
+.bar.done { background: var(--done); }
+.bar.dim { background: var(--dim); }
+.bar.runa { background: var(--range); }
+.bar.runb { background: var(--run2); }
+.bar.runa.range, .bar.runb.range { opacity: .55; }
+.b-tim { color: var(--run2); }
+.bar i { font-style: normal; font-family: var(--font-mono); font-size: 11px; color: var(--surface); padding-bottom: 2px; font-weight: 600; }
+.bar.dim i { color: var(--muted); }
+
+.msg { min-height: 1.75em; font-size: 14px; font-weight: 500; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.stat { background: var(--bg); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--muted); }
+.stat b { font-family: var(--font-mono); font-size: 17px; color: var(--fg); font-variant-numeric: tabular-nums; margin-right: 2px; }
+.stat.key { outline: 1.5px solid var(--line); }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+button, select { font-family: var(--font-body); font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+button:hover, select:hover { border-color: var(--muted); }
+button.primary { background: var(--fg); color: var(--surface); border-color: var(--fg); font-weight: 700; min-width: 92px; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--range); outline-offset: 2px; }
+label.ctl { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+input[type="range"] { width: 110px; accent-color: var(--range); }
+.progress { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.progress > div { height: 100%; background: var(--range); width: 0; }
+
+.look { font-size: 13.5px; border-left: 3px solid var(--line); padding: 2px 0 2px 12px; color: var(--muted); margin: 0; }
+.look b { color: var(--fg); }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: .04em; }
+td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+td.o { font-family: var(--font-mono); font-weight: 600; }
+.meter { width: 160px; height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.meter > div { height: 100%; border-radius: 4px; }
+.verdict-ok { color: var(--done); font-weight: 700; }
+.verdict-ng { color: var(--accent); font-weight: 700; }
+@media (max-width: 520px) { .lab { padding: 16px; } .stage { height: 160px; } .meter { width: 90px; } }
+@media (prefers-reduced-motion: reduce) { .bar { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>計算量 体験ラボ</h1>
+    <p>同じ数字の並びを、3つのやり方で処理します。「再生」を押して、<b>何回の操作で終わるか</b>を下のカウンターで比べてください。N（データの個数）を 8 → 16 → 32 と倍にしたとき、回数がどう増えるかが一番の見どころです。</p>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--accent)"></i>いま比べている／置いている</span>
+      <span><i class="sw" style="background:var(--range);opacity:.55"></i>いま作業中の範囲</span>
+      <span><i class="sw" style="background:var(--done)"></i>確定</span>
+      <span><i class="sw" style="background:var(--dim);outline:1px solid var(--line)"></i>候補から外れた</span>
+    </div>
+  </header>
+
+  <section class="lab" id="bubble">
+    <div class="lab-head"><h2>バブルソート</h2><span class="badge b-n2">O(N²)</span></div>
+    <p class="why">隣どうしを比べて、大きい方を右へ送る。これを<b>1周 ≒ N 回</b>やると一番大きい数が右端で確定する。全部確定するまで<b>約 N 周</b>必要なので、N × N。</p>
+    <div class="stage"></div>
+    <div class="progress"><div></div></div>
+    <div class="msg"></div>
+    <div class="stats"></div>
+    <div class="controls">
+      <button class="primary play" type="button">再生</button>
+      <button class="step" type="button">1手進む</button>
+      <button class="skip" type="button">最後まで</button>
+      <button class="reset" type="button">並べ直す</button>
+      <label class="ctl">N <select class="n" id="bubble-n"><option>8</option><option selected>16</option><option>32</option><option>64</option></select></label>
+      <label class="ctl">速さ <input type="range" class="speed" id="bubble-speed" min="1" max="5" value="3"></label>
+    </div>
+    <p class="look"><b>見るポイント：</b>N を 16 → 32 に倍にすると、比較回数は<b>約4倍</b>になる（2² = 4）。</p>
+  </section>
+
+  <section class="lab" id="merge">
+    <div class="lab-head"><h2>マージソート</h2><span class="badge b-nlogn">O(N log N)</span></div>
+    <p class="why">1個ずつのかたまりから始めて、<b>2つずつ合体</b>していく（1個→2個→4個→8個…）。合体の段数は<b>log N 段</b>、各段で<b>N 個すべて</b>を1回ずつ置くので、N × log N。</p>
+    <div class="stage"></div>
+    <div class="progress"><div></div></div>
+    <div class="msg"></div>
+    <div class="stats"></div>
+    <div class="controls">
+      <button class="primary play" type="button">再生</button>
+      <button class="step" type="button">1手進む</button>
+      <button class="skip" type="button">最後まで</button>
+      <button class="reset" type="button">並べ直す</button>
+      <label class="ctl">N <select class="n" id="merge-n"><option>8</option><option selected>16</option><option>32</option><option>64</option></select></label>
+      <label class="ctl">速さ <input type="range" class="speed" id="merge-speed" min="1" max="5" value="3"></label>
+    </div>
+    <p class="look"><b>見るポイント：</b>棒のすき間が「かたまりの区切り」。段が1つ進むごとにかたまりが倍になり、N = 16 なら<b>4段</b>（16→8→4→2→1 の4回）で終わる。</p>
+  </section>
+
+  <section class="lab" id="tim">
+    <div class="lab-head"><h2>Timsort（Python の sort / sorted）</h2><span class="badge b-tim">O(N log N)</span></div>
+    <p class="why">① 左から見て、<b>最初から並んでいる部分（ラン）</b>を探す。下り坂ならひっくり返して使う。② ランが短すぎたら<b>挿入ソート</b>で伸ばす。③ できたランどうしを<b>マージソートと同じように合体</b>する。並んでいる部分が多いほど、③の合体が少なくて済む。</p>
+    <div class="legend" style="margin-top:0">
+      <span><i class="sw" style="background:var(--range)"></i><i class="sw" style="background:var(--run2)"></i>完成したラン（交互に色分け）</span>
+      <span><i class="sw" style="background:var(--accent)"></i>いま差し込んでいる／置いている</span>
+    </div>
+    <div class="stage"></div>
+    <div class="progress"><div></div></div>
+    <div class="msg"></div>
+    <div class="stats"></div>
+    <div class="controls">
+      <button class="primary play" type="button">再生</button>
+      <button class="step" type="button">1手進む</button>
+      <button class="skip" type="button">最後まで</button>
+      <button class="reset" type="button">並べ直す</button>
+      <label class="ctl">データ <select class="mode" id="tim-mode"><option value="near" selected>ほぼ並んでいる</option><option value="random">ばらばら</option></select></label>
+      <label class="ctl">N <select class="n" id="tim-n"><option>16</option><option selected>32</option><option>64</option></select></label>
+      <label class="ctl">速さ <input type="range" class="speed" id="tim-speed" min="1" max="5" value="3"></label>
+    </div>
+    <p class="look"><b>見るポイント：</b>「ほぼ並んでいる」と「ばらばら」で操作回数を比べてみてください。ほぼ並んでいるデータは長いランがそのまま使えるので、O(N) に近い回数で終わる。</p>
+    <p class="look">見やすさのため簡略化しています。本物はランの最小の長さ（minrun）が 32〜64 個で、ここでは 4〜8 個に縮めています。また合体の順番は、ここでは隣どうしを順に合体していますが、本物はランの長さのバランスを見て決めます。</p>
+  </section>
+
+  <section class="lab" id="binary">
+    <div class="lab-head"><h2>二分探索</h2><span class="badge b-logn">O(log N)</span></div>
+    <p class="why">並んだ数字から目的の数を探す。真ん中を見て「もっと右か左か」を決め、<b>候補を毎回半分</b>に捨てる。半分にできる回数は log N 回だけ。</p>
+    <div class="stage"></div>
+    <div class="progress"><div></div></div>
+    <div class="msg"></div>
+    <div class="stats"></div>
+    <div class="controls">
+      <button class="primary play" type="button">再生</button>
+      <button class="step" type="button">1手進む</button>
+      <button class="skip" type="button">最後まで</button>
+      <button class="reset" type="button">別の数を探す</button>
+      <label class="ctl">N <select class="n" id="binary-n"><option>8</option><option selected>16</option><option>32</option><option>64</option></select></label>
+      <label class="ctl">速さ <input type="range" class="speed" id="binary-speed" min="1" max="5" value="2"></label>
+    </div>
+    <p class="look"><b>見るポイント：</b>N を倍にしても、調べる回数は<b>たった1回</b>しか増えない。左から順に探す（O(N)）と、最悪 N 回かかる。</p>
+  </section>
+
+  <section class="lab" id="compare">
+    <div class="lab-head"><h2>N を本番サイズにすると</h2></div>
+    <p class="why">LeetCode の N は 10万前後が普通。1秒で約1億回（10⁸）処理できるとして、それぞれ何秒かかるかを計算します。</p>
+    <div class="controls">
+      <label class="ctl">N =
+        <select id="cmp-n">
+          <option value="10">10</option><option value="100">100</option><option value="1000">1,000</option>
+          <option value="10000">1万</option><option value="100000" selected>10万</option><option value="1000000">100万</option>
+        </select>
+      </label>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>計算量</th><th>例</th><th style="text-align:right">操作回数</th><th>回数の大きさ（桁）</th><th>かかる時間</th></tr></thead>
+        <tbody id="cmp-body"></tbody>
+      </table>
+    </div>
+    <p class="look">棒は桁数（10を何回掛けたか）で描いています。そのまま描くと O(N²) 以外が見えなくなるほど差が大きいためです。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  const log2 = n => Math.round(Math.log2(n));
+  function shuffled(n) {
+    const a = Array.from({ length: n }, (_, i) => i + 1);
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+  function drawBars(stage, a, max, clsFn, gapFn) {
+    const showNum = a.length <= 16;
+    const frag = document.createDocumentFragment();
+    a.forEach((v, i) => {
+      const d = document.createElement('div');
+      d.className = 'bar ' + (clsFn(i) || '') + (gapFn && gapFn(i) ? ' gap' : '');
+      d.style.height = Math.max(6, (v / max) * 100) + '%';
+      if (showNum) { const t = document.createElement('i'); t.textContent = v; d.appendChild(t); }
+      frag.appendChild(d);
+    });
+    stage.replaceChildren(frag);
+  }
+  const stat = (v, label, key) => `<span class="stat${key ? ' key' : ''}"><b>${v}</b>${label}</span>`;
+  const DELAYS = [700, 320, 120, 40, 6];
+
+  function setupLab(id, cfg) {
+    const root = document.getElementById(id);
+    const q = s => root.querySelector(s);
+    const stage = q('.stage'), msg = q('.msg'), stats = q('.stats'), bar = q('.progress > div');
+    const playBtn = q('.play'), sel = q('.n'), speed = q('.speed');
+    let data, idx = 0, timer = null;
+    const modeSel = q('.mode');
+    function init() { stop(); data = cfg.build(+sel.value, modeSel ? modeSel.value : null); idx = 0; draw(); }
+    if (modeSel) modeSel.addEventListener('change', () => init());
+    function draw() {
+      const f = data.frames[idx];
+      cfg.render(stage, f, data);
+      msg.textContent = f.msg;
+      stats.innerHTML = cfg.stats(f, data);
+      bar.style.width = (idx / (data.frames.length - 1) * 100) + '%';
+    }
+    function next() { if (idx < data.frames.length - 1) { idx++; draw(); return true; } return false; }
+    function tick() { if (next()) timer = setTimeout(tick, DELAYS[+speed.value - 1]); else stop(); }
+    function stop() { clearTimeout(timer); timer = null; playBtn.textContent = '再生'; }
+    playBtn.addEventListener('click', () => {
+      if (timer) { stop(); return; }
+      if (idx >= data.frames.length - 1) { idx = 0; draw(); }
+      playBtn.textContent = '一時停止'; tick();
+    });
+    q('.step').addEventListener('click', () => { stop(); next(); });
+    q('.skip').addEventListener('click', () => { stop(); idx = data.frames.length - 1; draw(); });
+    q('.reset').addEventListener('click', init);
+    sel.addEventListener('change', init);
+    init();
+  }
+
+  /* ---------- バブルソート ---------- */
+  setupLab('bubble', {
+    build(n) {
+      const a = shuffled(n), frames = [];
+      let cmp = 0;
+      frames.push({ a: a.slice(), hi: [], sortedFrom: n, cmp, round: 0, msg: 'スタート：左から隣どうしを比べていきます' });
+      for (let i = 0; i < n - 1; i++) {
+        for (let j = 0; j < n - 1 - i; j++) {
+          cmp++;
+          const swap = a[j] > a[j + 1];
+          if (swap) [a[j], a[j + 1]] = [a[j + 1], a[j]];
+          frames.push({ a: a.slice(), hi: [j, j + 1], sortedFrom: n - i, cmp, round: i + 1,
+            msg: `${i + 1}周目：${swap ? `${a[j + 1]} の方が大きいので右へ入れ替え` : `${a[j]} < ${a[j + 1]} なのでそのまま`}` });
+        }
+        frames.push({ a: a.slice(), hi: [], sortedFrom: n - 1 - i, cmp, round: i + 1, msg: `${i + 1}周目 完了：右端の ${a[n - 1 - i]} が確定` });
+      }
+      frames.push({ a: a.slice(), hi: [], sortedFrom: 0, cmp, round: n - 1, msg: `完了：比較は合計 ${cmp} 回` });
+      return { frames, n };
+    },
+    render(stage, f, d) {
+      drawBars(stage, f.a, d.n, i => f.sortedFrom <= i ? 'done' : (f.hi.includes(i) ? 'cmp' : ''));
+    },
+    stats(f, d) {
+      return stat(f.cmp, ' 回 比較した', true) + stat(`${f.round}/${d.n - 1}`, ' 周') + stat(d.n * (d.n - 1) / 2, ' 回 ＝ 目安 N×N÷2');
+    }
+  });
+
+  /* ---------- マージソート（ボトムアップ） ---------- */
+  setupLab('merge', {
+    build(n) {
+      const a = shuffled(n), frames = [], L = log2(n);
+      let ops = 0, level = 0;
+      frames.push({ a: a.slice(), k: -1, lo: -1, hi: -1, block: 1, level, ops, msg: 'スタート：1個ずつのかたまりに分かれた状態から、2つずつ合体していきます' });
+      for (let w = 1; w < n; w *= 2) {
+        level++;
+        for (let lo = 0; lo < n; lo += 2 * w) {
+          const mid = Math.min(lo + w, n), hi = Math.min(lo + 2 * w, n);
+          const left = a.slice(lo, mid), right = a.slice(mid, hi);
+          let i = 0, j = 0, k = lo;
+          while (i < left.length || j < right.length) {
+            const takeLeft = j >= right.length || (i < left.length && left[i] <= right[j]);
+            a[k] = takeLeft ? left[i++] : right[j++];
+            ops++;
+            frames.push({ a: a.slice(), k, lo, hi, block: 2 * w, level, ops,
+              msg: `${level}段目：${w}個のかたまり2つを、小さい順に並べながら ${2 * w}個に合体（${a[k]} を置いた）` });
+            k++;
+          }
+        }
+        frames.push({ a: a.slice(), k: -1, lo: -1, hi: -1, block: 2 * w, level, ops,
+          msg: `${level}段目 完了：この段で ${n} 個すべてを1回ずつ置いた` });
+      }
+      frames.push({ a: a.slice(), k: -1, lo: -1, hi: -1, block: n, level: L, ops, done: true,
+        msg: `完了：${L}段 × ${n}個 ＝ ${ops} 回` });
+      return { frames, n, L };
+    },
+    render(stage, f, d) {
+      drawBars(stage, f.a, d.n,
+        i => f.done ? 'done' : (i === f.k ? 'cmp range' : (i >= f.lo && i < f.hi ? 'range' : '')),
+        i => i > 0 && i % f.block === 0);
+    },
+    stats(f, d) {
+      return stat(f.ops, ' 回 置いた', true) + stat(`${f.level}/${d.L}`, ' 段（log₂N）') + stat(d.n * d.L, ` 回 ＝ 目安 N×logN`);
+    }
+  });
+
+  /* ---------- Timsort（簡略版） ---------- */
+  function nearlySorted(n) {
+    const a = Array.from({ length: n }, (_, i) => i + 1);
+    const len = Math.max(3, Math.floor(n / 5));
+    const s = Math.floor(n * 0.55);
+    a.splice(s, len, ...a.slice(s, s + len).reverse());
+    for (let t = 0; t < 2; t++) {
+      const i = 1 + Math.floor(Math.random() * Math.floor(n * 0.45));
+      [a[i], a[i + 1]] = [a[i + 1], a[i]];
+    }
+    return a;
+  }
+  setupLab('tim', {
+    build(n, mode) {
+      const a = mode === 'random' ? shuffled(n) : nearlySorted(n);
+      const minrun = n >= 32 ? 8 : 4;
+      const frames = [];
+      let runs = [], ops = 0;
+      const push = (o) => frames.push(Object.assign({ a: a.slice(), runs: runs.map(r => r.slice()), lo: -1, hi: -1, k: -1, ops }, o));
+      push({ phase: '①ランを探す', msg: `スタート：左から「最初から並んでいる部分（ラン）」を探します（短いランは ${minrun} 個まで伸ばす）` });
+      let i = 0;
+      while (i < n) {
+        const s = i; let e = i + 1;
+        if (e < n && a[e] < a[s]) {
+          while (e < n && a[e] < a[e - 1]) e++;
+          ops += e - s - 1;
+          push({ phase: '①ランを探す', lo: s, hi: e, ops, msg: `下り坂の並び（${e - s}個）を発見 → ひっくり返せば上り坂のランになる` });
+          a.splice(s, e - s, ...a.slice(s, e).reverse());
+          ops += Math.floor((e - s) / 2);
+          push({ phase: '①ランを探す', lo: s, hi: e, ops, msg: `ひっくり返した` });
+        } else {
+          while (e < n && a[e] >= a[e - 1]) e++;
+          ops += e - s - 1;
+          push({ phase: '①ランを探す', lo: s, hi: e, ops, msg: `最初から並んでいる部分を発見：${e - s}個。並べ替えずにそのまま使える` });
+        }
+        if (e - s < minrun && e < n) {
+          const target = Math.min(s + minrun, n);
+          push({ phase: '②挿入ソート', lo: s, hi: e, ops, msg: `${e - s}個だけでは短いので、挿入ソートで ${target - s} 個まで伸ばす` });
+          for (let j = e; j < target; j++) {
+            const x = a[j]; let p = j;
+            while (p > s && a[p - 1] > x) { a[p] = a[p - 1]; p--; ops++; }
+            a[p] = x; ops++;
+            push({ phase: '②挿入ソート', lo: s, hi: j + 1, k: p, ops, msg: `挿入ソート：${x} を左へずらして、正しい位置に差し込む` });
+          }
+          e = target;
+        }
+        runs.push([s, e]);
+        push({ phase: '①ランを探す', ops, msg: `ラン ${runs.length} 完成（${e - s}個）` });
+        i = e;
+      }
+      push({ phase: '③合体', ops, msg: `ランが ${runs.length} 個できた。ここからマージソートと同じように合体していく` });
+      while (runs.length > 1) {
+        const next = [];
+        for (let r = 0; r < runs.length; r += 2) {
+          if (r + 1 >= runs.length) { next.push(runs[r]); continue; }
+          const lo = runs[r][0], mid = runs[r][1], hi = runs[r + 1][1];
+          const left = a.slice(lo, mid), right = a.slice(mid, hi);
+          const view = next.concat([[lo, hi]], runs.slice(r + 2));
+          let x = 0, y = 0, k = lo;
+          while (x < left.length || y < right.length) {
+            const takeLeft = y >= right.length || (x < left.length && left[x] <= right[y]);
+            a[k] = takeLeft ? left[x++] : right[y++];
+            ops++;
+            frames.push({ a: a.slice(), runs: view, lo, hi, k, ops, phase: '③合体',
+              msg: `ラン2つ（${mid - lo}個 + ${hi - mid}個）を小さい順に合体（${a[k]} を置いた）` });
+            k++;
+          }
+          next.push([lo, hi]);
+        }
+        runs = next;
+        push({ phase: '③合体', ops, msg: `合体が1巡した：残りのラン ${runs.length} 個` });
+      }
+      push({ phase: '完了', ops, done: true, msg: `完了：操作は合計 ${ops} 回（ラン探し・挿入ソート・合体の合計）` });
+      return { frames, n, L: log2(n) };
+    },
+    render(stage, f, d) {
+      const starts = new Set(f.runs.map(r => r[0]));
+      if (f.lo >= 0) starts.add(f.lo);
+      drawBars(stage, f.a, d.n, i => {
+        if (f.done) return 'done';
+        if (i === f.k) return 'cmp';
+        const inActive = i >= f.lo && i < f.hi;
+        const r = f.runs.findIndex(([s, e]) => i >= s && i < e);
+        if (r >= 0) return (r % 2 ? 'runb' : 'runa') + (inActive ? ' range' : '');
+        return inActive ? 'range' : '';
+      }, i => i > 0 && starts.has(i));
+    },
+    stats(f, d) {
+      return stat(f.ops, ' 回 操作', true) + stat(f.phase, '') + stat(f.runs.length, ' 個 ラン') + stat(d.n * d.L, ' 回 ＝ 普通のマージソートの目安 N×logN');
+    }
+  });
+
+  /* ---------- 二分探索 ---------- */
+  setupLab('binary', {
+    build(n) {
+      const a = []; let v = 0;
+      for (let i = 0; i < n; i++) { v += 1 + Math.floor(Math.random() * 4); a.push(v); }
+      const target = a[Math.floor(Math.random() * n)];
+      const frames = [];
+      let lo = 0, hi = n - 1, steps = 0;
+      frames.push({ lo, hi, mid: -1, steps, left: n, msg: `${target} を探します（数字は小さい順に並んでいる）` });
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        steps++;
+        if (a[mid] === target) {
+          frames.push({ lo, hi, mid, steps, left: hi - lo + 1, msg: `真ん中は ${a[mid]}：見つけた！` });
+          frames.push({ lo: mid, hi: mid, mid, steps, left: 1, found: mid, msg: `完了：${n} 個の中から ${steps} 回で見つかった` });
+          break;
+        }
+        const goRight = a[mid] < target;
+        frames.push({ lo, hi, mid, steps, left: hi - lo + 1,
+          msg: `真ん中は ${a[mid]}：${target} は${goRight ? 'もっと大きいので右半分' : 'もっと小さいので左半分'}だけ残す` });
+        if (goRight) lo = mid + 1; else hi = mid - 1;
+        frames.push({ lo, hi, mid: -1, steps, left: hi - lo + 1, msg: `残りの候補は ${hi - lo + 1} 個` });
+      }
+      return { frames, n, a, max: v, target, L: log2(n) };
+    },
+    render(stage, f, d) {
+      drawBars(stage, d.a, d.max, i => {
+        if (f.found === i) return 'done';
+        if (i === f.mid) return 'cmp';
+        if (i < f.lo || i > f.hi) return 'dim';
+        return '';
+      });
+    },
+    stats(f, d) {
+      return stat(f.steps, ' 回 調べた', true) + stat(f.left, ' 個 残り候補') + stat(d.L + 1, ' 回 ＝ 最大でも log₂N+1') + stat(d.n, ' 回 ＝ 左から順に探す最悪');
+    }
+  });
+
+  /* ---------- 本番サイズ比較 ---------- */
+  const rows = [
+    { o: 'O(1)', ex: 'dict のキー検索', f: n => 1, c: 'var(--done)' },
+    { o: 'O(log N)', ex: '二分探索', f: n => Math.log2(n), c: 'var(--done)' },
+    { o: 'O(N)', ex: '配列を1回なめる', f: n => n, c: 'var(--range)' },
+    { o: 'O(N log N)', ex: 'マージソート / sorted()', f: n => n * Math.log2(n), c: 'var(--range)' },
+    { o: 'O(N²)', ex: 'バブルソート / 二重ループ', f: n => n * n, c: 'var(--accent)' }
+  ];
+  function fmtCount(c) { return c < 10 ? c.toFixed(c % 1 ? 1 : 0) : Math.round(c).toLocaleString('ja-JP'); }
+  function fmtTime(c) {
+    const s = c / 1e8;
+    if (s < 1e-3) return ['一瞬', true];
+    if (s < 1) return [`${(s * 1000).toFixed(s < 0.01 ? 1 : 0)} ミリ秒`, true];
+    if (s < 60) return [`${s.toFixed(1)} 秒`, s <= 2];
+    if (s < 3600) return [`${(s / 60).toFixed(1)} 分`, false];
+    if (s < 86400) return [`${(s / 3600).toFixed(1)} 時間`, false];
+    return [`${(s / 86400).toFixed(1)} 日`, false];
+  }
+  const cmpSel = document.getElementById('cmp-n'), body = document.getElementById('cmp-body');
+  function renderCmp() {
+    const n = +cmpSel.value, maxDigits = Math.log10(1e12) + 1;
+    body.innerHTML = rows.map(r => {
+      const c = r.f(n), [t, ok] = fmtTime(c);
+      const w = Math.max(3, (Math.log10(Math.max(c, 1)) + 1) / maxDigits * 100);
+      return `<tr><td class="o">${r.o}</td><td>${r.ex}</td><td class="num">${fmtCount(c)}</td>
+        <td><div class="meter"><div style="width:${w}%;background:${r.c}"></div></div></td>
+        <td class="${ok ? 'verdict-ok' : 'verdict-ng'}">${t}</td></tr>`;
+    }).join('');
+  }
+  cmpSel.addEventListener('change', renderCmp);
+  renderCmp();
+})();
+</script>
+
+</body></html>
