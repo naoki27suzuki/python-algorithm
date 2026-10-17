@@ -1,2 +1,2 @@
-# python-algorithm
-algorithm
+# 概要
+Pythonを用いてアルゴリズムと時間計算量、空間計算量を学ぶためのRepo
